@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Orienteering season planning tool</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+
+    <!-- Include Mapbox -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.2.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.2.0/mapbox-gl.js"></script>
+
+    <!-- Include fonts -->
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;400;700&display=swap" rel="stylesheet">
+
+    <!-- Local css -->
+    <link href="style.css" rel="stylesheet">
+
+</head>
+
+<body>
+    <!-- Container for the map -->
+    <div id="map"></div>
+    <!-- Side panel structure -->
+    <div id="panelParent" class="panelShell">
+        <!-- Buttons to collapse and restore the side panel 
+        <div id="controllers">
+            <a id="closeLink" href="javascript:collapsePanelBox()">&times;</a>
+            <a id="openLink" href="javascript:restorePanelBox()" style="display: none;">&laquo;</a>
+        </div> -->
+        <!-- Header and logo -->
+        <div id="mthLogo" class="panelBox">
+            <a href="https://www.vicorienteering.asn.au" target="_blank"><img src="https://www.vicorienteering.asn.au/wp-content/uploads/OV_LOGO_COLOUR_POS-300x82.png" alt="" width="100%"></a>
+        </div>
+        <div id="title" class="panelBox">
+            <h3>Orienteering Victoria</h3>    
+            <p>Park and Street Orienteering season planning tool.</p>
+        </div>
+        <!-- Toggle layers on and off -->
+        <div id="options" class="panelBox">
+            <details open>
+                <summary>TOGGLE LAYERS ON AND OFF</summary>
+                <button id="controlDrinkingFountains" class="toggleButton">Hide drink taps</button>
+                <button id="controlPublicToilets" class="toggleButton">Hide public toilets</button>
+                <button id="controlStartLocations" class="toggleButton">Hide start locations</button>
+                <button id="controlAverageAttendance" class="toggleButton">Show average attendance</button>
+                <button id="controlTotalUse" class="toggleButton">Show total use</button>
+
+            </details>
+        </div>
+        <!-- Info about the clicked feature -->
+        <div id="details" class="panelBox">
+            <details open>
+                <summary>CLICK ON A MAP</summary>
+                <h3>Map details</h3>
+                <div id="mapDetails">
+                    <p>Map name: </p>
+                    <p>Club responsible: </p>
+                </div>
+                <h3>Map use statistics (March 2017 to March 2021)</h3>
+                <div id="mapTotals">
+                    <p>No. of times used (2017-2020): </p>
+                    <p>Average no. of participants: </p>
+                </div>
+            </details>
+        </div>
+        <!-- Legend for the map -->
+        <div id="legendBox" class="panelBox">
+            <details open>
+                <summary>LEGEND</summary>
+                <div id="legend" class="legend">
+                    <h3>Club ownership of maps</h3>
+                    <div class="legend-status">
+                        <span class="legend-patch" style="background-color: #18a300; width: 12px; height: 12px;"></span>
+                        <span class='condensed'>Nillumbik Emus</span>
+                    </div>
+                    <div class="legend-status">
+                        <span class="legend-patch" style="background-color: #ed7bcb; width: 12px; height: 12px;"></span>
+                        <span class='condensed'>Dandenong Ranges</span>
+                    </div>
+                    <div class="legend-status">
+                        <span class="legend-patch" style="background-color: #7ac6ff; width: 12px; height: 12px;"></span>
+                        <span class='condensed'>Bayside Kangaroos</span>
+                    </div>
+                    <div class="legend-status">
+                        <span class="legend-patch" style="background-color: #fff700; width: 12px; height: 12px;"></span>
+                        <span class='condensed'>Yarra Valley</span>
+                    </div>
+                    <div class="legend-status">
+                        <span class="legend-patch" style="background-color: #a82eff; width: 12px; height: 12px;"></span>
+                        <span class='condensed'>ARDF</span>
+                    </div>
+                    <div class="legend-status">
+                        <span class="legend-patch" style="background-color: #ff8800; width: 12px; height: 12px;"></span>
+                        <span class='condensed'>Tuckonie</span>
+                    </div>
+                    <div class="legend-status">
+                        <span class="legend-patch" style="background-color: #b01e2f; width: 12px; height: 12px;"></span>
+                        <span class='condensed'>Mornington Peninsula</span>
+                    </div>
+                </div>
+            </details>
+        </div>
+        <!-- Disclaimer -->
+        <div id="about" class="panelBox">
+            <details>
+                <summary>ABOUT THIS MAP</summary>
+                <p>Find out more about park and street orienteering
+                    <a href="https://www.vicorienteering.asn.au/go-orienteering/park-street-orienteering/"
+                        target="_blank">here</a>.
+                </p>
+                <p>&nbsp;</p>
+            </details>
+        </div>
+    </div>
+
+    <script>
+        ////////////////////
+        // SET UP THE MAP //
+        ////////////////////
+
+        mapboxgl.accessToken = 'pk.eyJ1IjoiaGVsZW53YWwiLCJhIjoiY2tkNTE2N3BxMWE3MTJybzMxc3RocW0yNCJ9.TnX-HlxcbISLvgMkl5byhA';
+
+        var map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/helenwal/ckou04ttb4om717o4w91sw8mz',
+            center: [145.15, -37.805],
+            zoom: 11
+        });
+
+        var hoveredPolygonID = null;
+        var defaultLegend = '<h3>Club ownership of maps</h3><div class="legend-status"><span class="legend-patch" style="background-color: #18a300; width: 12px; height: 12px;"></span><span class="condensed">Nillumbik Emus</span></div><div class="legend-status"><span class="legend-patch" style="background-color: #ed7bcb; width: 12px; height: 12px;"></span><span class="condensed">Dandenong Ranges</span></div><div class="legend-status"><span class="legend-patch" style="background-color: #7ac6ff; width: 12px; height: 12px;"></span><span class="condensed">Bayside Kangaroos</span></div><div class="legend-status"><span class="legend-patch" style="background-color: #fff700; width: 12px; height: 12px;"></span><span class="condensed">Yarra Valley</span></div><div class="legend-status"><span class="legend-patch" style="background-color: #a82eff; width: 12px; height: 12px;"></span><span class="condensed">ARDF</span></div><div class="legend-status"><span class="legend-patch" style="background-color: #ff8800; width: 12px; height: 12px;"></span><span class="condensed">Tuckonie</span></div><div class="legend-status"><span class="legend-patch" style="background-color: #b01e2f; width: 12px; height: 12px;"></span><span class="condensed">Mornington Peninsula</span></div>'
+
+        map.on('load', function () {
+            var clubNames = ['NEV', 'DRV', 'BKV', 'YVV', 'ARV', 'TKV', 'MPV', 'TBC']
+            var clubColours = ['#18a300', '#ed7bcb', '#7ac6ff', '#fff700', '#a82eff', '#ff8800', '#b01e2f', '#888888']
+            map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+
+            ////////////////////
+            // BUTTON ACTIONS //
+            ////////////////////
+
+            // Assign actions to visibility control buttons
+            document.getElementById('controlDrinkingFountains').addEventListener('click', function () {
+                if (document.getElementById('controlDrinkingFountains').innerHTML == 'Hide drink taps') {
+                    map.setLayoutProperty('drinkingFountains', 'visibility', 'none');
+                    document.getElementById('controlDrinkingFountains').innerHTML = 'Show drink taps';
+                } else if (document.getElementById('controlDrinkingFountains').innerHTML == 'Show drink taps') {
+                    map.setLayoutProperty('drinkingFountains', 'visibility', 'visible');
+                    document.getElementById('controlDrinkingFountains').innerHTML = 'Hide drink taps';
+                }
+            });
+
+            document.getElementById('controlPublicToilets').addEventListener('click', function () {
+                if (document.getElementById('controlPublicToilets').innerHTML == 'Hide public toilets') {
+                    map.setLayoutProperty('publicToilets', 'visibility', 'none');
+                    document.getElementById('controlPublicToilets').innerHTML = 'Show public toilets';
+                } else if (document.getElementById('controlPublicToilets').innerHTML == 'Show public toilets') {
+                    map.setLayoutProperty('publicToilets', 'visibility', 'visible');
+                    document.getElementById('controlPublicToilets').innerHTML = 'Hide public toilets';
+                }
+            });
+
+            document.getElementById('controlStartLocations').addEventListener('click', function () {
+                if (document.getElementById('controlStartLocations').innerHTML == 'Hide start locations') {
+                    map.setLayoutProperty('startTriangles', 'visibility', 'none');
+                    document.getElementById('controlStartLocations').innerHTML = 'Show start locations';
+                } else if (document.getElementById('controlStartLocations').innerHTML == 'Show start locations') {
+                    map.setLayoutProperty('startTriangles', 'visibility', 'visible');
+                    document.getElementById('controlStartLocations').innerHTML = 'Hide start locations';
+                }
+            });
+
+            document.getElementById('controlAverageAttendance').addEventListener('click', function () {
+                if (document.getElementById('controlAverageAttendance').innerHTML == 'Hide average attendance') {
+                    map.setLayoutProperty('mapExtentsBase', 'visibility', 'none');
+                    map.setLayoutProperty('mapAttendanceAverage', 'visibility', 'none');
+                    document.getElementById('controlAverageAttendance').innerHTML = 'Show average attendance';
+                    document.getElementById('legend').innerHTML = defaultLegend
+                } else if (document.getElementById('controlAverageAttendance').innerHTML == 'Show average attendance') {
+                    //first, do actions to hide 'total use' layer and reset 'total use' button 
+                    map.setLayoutProperty('mapUseTotal', 'visibility', 'none');
+                    document.getElementById('controlTotalUse').innerHTML = 'Show total use';
+
+                    // then, do actions to show 'average attendance' layer and update button/legend
+                    map.setLayoutProperty('mapExtentsBase', 'visibility', 'visible');
+                    map.setLayoutProperty('mapAttendanceAverage', 'visibility', 'visible');
+                    map.setLayoutProperty('mapUseTotal', 'visibility', 'none');
+                    document.getElementById('controlAverageAttendance').innerHTML = 'Hide average attendance';
+                    document.getElementById('legend').innerHTML = '<h3>Average number of participants per event (March 2017 - March 2021)</h4>'
+                        + '<div class="legend-status">'
+                        + '<span class="legend-patch" style="background-color: #FFFFdd; width: 12px; height: 12px;"></span>'
+                        + '<span class="condensed">not used</span></div>'
+                        + '<div class="legend-status">'
+                        + '<span class="legend-patch" style="background-color: #c9c9fc; width: 12px; height: 12px;"></span>'
+                        + '<span class="condensed">30-60</span></div>'
+                        + '<div class="legend-status">'
+                        + '<span class="legend-patch" style="background-color: #aaaafa; width: 12px; height: 12px;"></span>'
+                        + '<span class="condensed">60-90</span></div>'
+                        + '<div class="legend-status">'
+                        + '<span class="legend-patch" style="background-color: #6f6ff6; width: 12px; height: 12px;"></span>'
+                        + '<span class="condensed">90-120</span></div>'
+                        + '<div class="legend-status">'
+                        + '<span class="legend-patch" style="background-color: #4b4bf4; width: 12px; height: 12px;"></span>'
+                        + '<span class="condensed">120-150</span></div>'
+                }
+            });
+
+            document.getElementById('controlTotalUse').addEventListener('click', function () {
+                if (document.getElementById('controlTotalUse').innerHTML == 'Hide total use') {
+                    map.setLayoutProperty('mapExtentsBase', 'visibility', 'none');
+                    map.setLayoutProperty('mapUseTotal', 'visibility', 'none');
+                    document.getElementById('controlTotalUse').innerHTML = 'Show total use';
+                    document.getElementById('legend').innerHTML = defaultLegend
+                } else if (document.getElementById('controlTotalUse').innerHTML == 'Show total use') {
+                    // do actions to hide 'average attendance' layer and reset 'average attendance' button
+                    map.setLayoutProperty('mapAttendanceAverage', 'visibility', 'none');
+                    document.getElementById('controlAverageAttendance').innerHTML = 'Show average attendance';
+
+                    // do all actions to show 'total use' layer and update 'total use' button
+                    map.setLayoutProperty('mapExtentsBase', 'visibility', 'visible');
+                    map.setLayoutProperty('mapUseTotal', 'visibility', 'visible');
+                    map.setLayoutProperty('mapAttendanceAverage', 'visibility', 'none');
+                    document.getElementById('controlTotalUse').innerHTML = 'Hide total use';
+                    document.getElementById('legend').innerHTML = '<h3>Total use (March 2017 - March 2021)</h4>'
+                        + '<div class="legend-status">'
+                        + '<span class="legend-patch" style="background-color: #FFFFdd; width: 12px; height: 12px;"></span>'
+                        + '<span class="condensed">not used</span></div>'
+                        + '<div class="legend-status">'
+                        + '<span class="legend-patch" style="background-color: #2aee8c; width: 12px; height: 12px;"></span>'
+                        + '<span class="condensed">1-3</span></div>'
+                        + '<div class="legend-status">'
+                        + '<span class="legend-patch" style="background-color: #1b995a; width: 12px; height: 12px;"></span>'
+                        + '<span class="condensed">4-6</span></div>'
+                        + '<div class="legend-status">'
+                        + '<span class="legend-patch" style="background-color: #0f5532; width: 12px; height: 12px;"></span>'
+                        + '<span class="condensed">7-9</span></div>'
+                        + '<div class="legend-status">'
+                        + '<span class="legend-patch" style="background-color: #062214; width: 12px; height: 12px;"></span>'
+                        + '<span class="condensed">10-15</span></div>'
+                }
+            });
+
+
+            /////////////////////////
+            // DATA FOR MAP LAYERS //
+            /////////////////////////
+
+            // Establish links to data sources
+            map.addSource('mapBoundariesMB', {
+                type: 'vector',
+                url: 'mapbox://helenwal.ddcasd3h'
+            });
+
+            map.addSource('mapTotalsMB', {
+                type: 'vector',
+                url: 'mapbox://helenwal.8ifquh1q'
+            });
+
+            map.addSource('startLocationsMB', {
+                type: 'vector',
+                url: 'mapbox://helenwal.15pzhadd'
+            });
+
+            map.addSource('drinkingFountainsMB', {
+                type: 'vector',
+                url: 'mapbox://helenwal.43uhqwu4'
+            });
+
+            map.addSource('publicToiletsMB', {
+                type: 'vector',
+                url: 'mapbox://helenwal.0x87iz83'
+            })
+
+            map.addSource('mapTotalsWFS', {
+                type: 'vector',
+                tiles: ['http://localhost:8080/geoserver/streeto/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=streeto:mapboundaries3857&outputFormat=application/json'],
+                minZoom: 0,
+                maxZoom: 18,
+            });
+
+            // map.addSource('mapBoundariesWFSSource', {
+            //     'type': 'vector',
+            //     'tiles': ['http://localhost:8080/geoserver/gwc/service/wmts?REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&LAYER=topp:tasmania_water_bodies1&STYLE=&TILEMATRIX=EPSG:900913:{z}&TILEMATRIXSET=EPSG:900913&FORMAT=application/vnd.mapbox-vector-tile&TILECOL={x}&TILEROW={y}'],
+            //     'minZoom': 9,
+            //     'maxZoom': 18
+            // });
+
+            map.addLayer({
+                id: 'mapStats',
+                source: 'mapTotalsMB',
+                'source-layer': 'mapTotals7899-akptd9',
+                type: 'fill',
+                paint: {
+                    'fill-opacity': 0.01
+                }
+            });
+
+            map.addLayer({
+                id: 'mapExtentsMB',
+                source: 'mapBoundariesMB',
+                'source-layer': 'mapBoundaries7899-3gfu33',
+                type: 'fill',
+                paint: {
+                    'fill-color': ['match', //allocates colours based on club code
+                        ['get', 'Club_Owner'],
+                        clubNames[0], clubColours[0],
+                        clubNames[1], clubColours[1],
+                        clubNames[2], clubColours[2],
+                        clubNames[3], clubColours[3],
+                        clubNames[4], clubColours[4],
+                        clubNames[5], clubColours[5],
+                        clubNames[6], clubColours[6],
+                        '#ffffff' //default colour
+                    ],
+                    'fill-opacity': [
+                        'case',
+                        ['boolean', ['feature-state', 'hover'], false],
+                        0.8,
+                        0.45
+                    ]
+                }
+            });
+
+            map.addLayer({
+                id: 'mapExtentsBase',
+                source: 'mapBoundariesMB',
+                'source-layer': 'mapBoundaries7899-3gfu33',
+                type: 'fill',
+                paint: {
+                    'fill-color': '#FFFFdd',
+                },
+                layout: {
+                    visibility: 'none'
+                }
+            });
+
+            map.addLayer({
+                id: 'mapUseTotal',
+                source: 'mapTotalsMB',
+                'source-layer': 'mapTotals7899-akptd9',
+                type: 'fill',
+                paint: {
+                    'fill-color': ['rgb', //allocates colours based on range
+                        ['*', 3, ['+', 15, ['-', 0, ['get', 'total_map_']]]],
+                        ['*', 17, ['+', 15, ['-', 0, ['get', 'total_map_']]]],
+                        ['*', 10, ['+', 15, ['-', 0, ['get', 'total_map_']]]]
+                    ]
+                },
+                layout: {
+                    'visibility': 'none'
+                },
+            });
+
+            map.addLayer({
+                id: 'mapAttendanceAverage',
+                source: 'mapTotalsMB',
+                'source-layer': 'mapTotals7899-akptd9',
+                type: 'fill',
+                paint: {
+                    'fill-color': ['rgb', //allocates colours based on range
+                        ['*', 1.6, ['+', 150, ['-', 0, ['get', 'average_ma']]]],
+                        ['*', 1.6, ['+', 150, ['-', 0, ['get', 'average_ma']]]],
+                        ['*', 0.1, ['+', 2550, ['-', 0, ['get', 'average_ma']]]]
+                    ]
+                },
+                layout: {
+                    'visibility': 'none'
+                },
+            })
+
+            map.addLayer({
+                id: 'mapOutlinesMB',
+                source: 'mapBoundariesMB',
+                'source-layer': 'mapBoundaries7899-3gfu33',
+                type: 'line',
+                paint: {
+                    'line-color': '#ffffaa',
+                    'line-width': 2
+                }
+            });
+
+            map.addLayer({
+                id: 'startTriangles',
+                source: 'startLocationsMB',
+                'source-layer': 'starts7899-7lop3f',
+                type: 'symbol',
+                layout: {
+                    'icon-image': 'triangle',
+                    'icon-size': 1
+                }
+            });
+
+            map.addLayer({
+                id: 'drinkingFountains',
+                source: 'drinkingFountainsMB',
+                'source-layer': 'drinkingFountains7899-awr724',
+                type: 'symbol',
+                layout: {
+                    'icon-image': 'drinking-water-15',
+                    'icon-size': 1
+                }
+            });
+
+            map.addLayer({
+                id: 'publicToilets',
+                source: 'publicToiletsMB',
+                'source-layer': 'publicToilets7899-54pe8y',
+                type: 'symbol',
+                layout: {
+                    'icon-image': 'toilet-15',
+                    'icon-size': 1
+                }
+            });
+
+            map.addLayer({
+                id: 'mapLabelsMB',
+                source: 'mapBoundariesMB',
+                'source-layer': 'mapBoundaries7899-3gfu33',
+                type: 'symbol',
+                layout: {
+                    'text-field': ['get', 'Map_Name'],
+                    'text-anchor': 'center',
+                    'symbol-placement': 'point',
+                    'visibility': 'none'
+                },
+                paint: {
+                    'text-color': '#000000',
+                    'text-halo-width': 2,
+                    'text-halo-color': '#ffffdd'
+
+                }
+            });
+
+
+
+            map.on('zoom', function () {
+                if (map.getZoom() < 12) {
+                    map.setLayoutProperty('mapLabelsMB', 'visibility', 'none');
+                } else {
+                    map.setLayoutProperty('mapLabelsMB', 'visibility', 'visible');
+                }
+            });
+
+
+
+            map.on('click', function (e) {
+                let f = map.queryRenderedFeatures(e.point, { layers: ['mapExtentsMB'] });
+                // console.log(f.length);
+                if (f.length) {
+                    // console.log(f.length)
+                    // console.log("old poly is " + hoveredPolygonID)
+                    map.setFeatureState({
+                        source: 'mapBoundariesMB',
+                        sourceLayer: 'mapBoundaries7899-3gfu33',
+                        id: hoveredPolygonID,
+                    }, { hover: false });
+
+                    map.setFeatureState({
+                        source: 'mapBoundariesMB',
+                        sourceLayer: 'mapBoundaries7899-3gfu33',
+                        id: f[0].id,
+                    }, { hover: true });
+
+                    hoveredPolygonID = f[0].id //update to current polygon ID
+                    // console.log("new poly is: " + hoveredPolygonID)
+
+                    // write polygon info to title box.
+                    document.getElementById("mapDetails").innerHTML =
+                        "<p>Map name: "
+                        + f[0].properties.Map_Name
+                        + "</p><p>Club responsible: "
+                        + f[0].properties.Club_Owner
+                        + "</p>"
+                };
+
+                f = map.queryRenderedFeatures(e.point, { layers: ['mapStats'] });
+                console.log(f.length);
+                if (f.length) {
+                    console.log(f[0])
+
+                    var total_map = f[0].properties.total_map_
+                    var average_map = f[0].properties.average_ma
+
+                    document.getElementById('mapTotals').innerHTML = "<p>No. of times used (2017-2020): "
+                        + total_map
+                        + "</p><p>Average no. of participants: "
+                        + average_map
+                        + "</p>"
+                }
+            });
+
+
+            ///////////////////
+            // USER CONTROLS //
+            ///////////////////
+            map.on('mouseenter', 'mapExtentsMB', function (e) {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+            map.on('mouseleave', 'mapExtentsMB', function () {
+                map.getCanvas().style.cursor = '';
+            });
+
+
+
+
+            // set cursor to change to pointer on hover over features on each layer
+            // fix multiples to pass in array of layers instead of separate calls
+
+
+
+        });
+
+    </script>
+
+</body>
+
+</html>
